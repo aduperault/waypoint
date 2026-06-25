@@ -248,6 +248,53 @@ Key references:
 
 ---
 
+## Customizing and Extending Waypoint
+
+Waypoint is designed in layers, which makes it straightforward to adapt without
+touching the core agent logic.
+
+### Changing the UI or Branding
+
+All of the visual interface lives in a single file: `app.py`. The underlying
+agent — the rules engine, Claude reasoning, data ingestion, and database — lives
+in the `waypoint/` folder and does not need to change if you want a different look
+or interface.
+
+**If you want to restyle for your institution:**
+- Colors, fonts, and card styles are in the CSS block at the top of `app.py`
+- Add your institution logo with `st.image()` in the header section
+- Replace references to "Redrock College" in `app.py` and `config.py`
+- Adjust the description text to reflect your institution's context
+
+**If you want a completely different interface:**
+A developer can replace `app.py` entirely with a different frontend framework
+(Flask, Django, React, or any other web stack) while keeping all the agent logic
+unchanged. The entry point is always the same one line:
+
+```python
+from waypoint.agent import run_waypoint
+state = run_waypoint("path/to/your/students.csv")
+```
+
+Everything else — ingestion, rules, Claude reasoning, flag storage — runs
+automatically and returns a state object the new interface can use however it needs.
+
+### Choosing a Different Host
+
+Waypoint runs anywhere Python runs. Streamlit Community Cloud is used here for
+convenience, but a developer or system administrator could deploy it to:
+
+- **Their institution's own servers** — any Linux server with Python 3.11+ works
+- **Heroku or Railway** — simple cloud hosting with minimal configuration
+- **Azure, AWS, or Google Cloud** — for institutions already using one of these platforms
+- **A local network only** — for institutions that want to keep student data entirely
+  on-premises and off the public internet (recommended for production use)
+
+The only external dependency is the Anthropic API call for ambiguous case reasoning.
+Everything else — the database, the rules engine, the UI — runs fully locally.
+
+---
+
 ## Contributing
 
 Waypoint is open-source and intended as a starting point. Contributions welcome:
