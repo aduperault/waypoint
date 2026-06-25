@@ -39,7 +39,9 @@ The batch architecture is intentional: it minimizes token usage, processing over
 
 ## Demo Institution
 
-**Redrock College** is a fictional small rural community college with limited administrative infrastructure and high advisor caseloads. The institution's cultural context reflects the bilingual, Indigenous-rooted community it serves, as represented in the student names and program offerings. All student records are entirely fictional.
+**Redrock College** is a fictional small rural community college with limited administrative
+infrastructure and high advisor caseloads. All student records, names, and program offerings
+are entirely fictional.
 
 ---
 

@@ -102,9 +102,8 @@ already accomplished and meets them where they are, rather than framing non-regi
 a failure.
 
 **Demo institution:** Redrock College is a fictional small rural community college with
-limited administrative infrastructure and high advisor caseloads. The institution's cultural
-context reflects the bilingual, Indigenous-rooted community it serves, as represented in the
-student names and program offerings. All student records are entirely fictional.
+limited administrative infrastructure and high advisor caseloads. All student records,
+names, and program offerings are entirely fictional.
 
 **A note on maturity:** This is a proof of concept built for demonstration purposes. It has
 not been tested with real student data, and the synthetic dataset used here was designed to
