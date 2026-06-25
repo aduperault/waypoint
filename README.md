@@ -1,5 +1,5 @@
 # 🧭 Waypoint — Student Success Nudge Agent
-
+**[▶ Live Demo](https://waypoint.streamlit.app/)** · **[GitHub](https://github.com/aduperault/waypoint)**
 **A proof-of-concept AI agent for higher education student success, built for institutions with limited resources, siloed systems, and connectivity constraints.**
 
 Waypoint demonstrates how a small institution can begin leveraging AI at the "crawl" stage of a crawl → walk → run adoption framework — no CRM integration, no cloud platform, no complex infrastructure required.
