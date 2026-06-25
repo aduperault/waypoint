@@ -214,50 +214,6 @@ gives you accurate, degree-audit-verified remaining credit counts.
 | Replace Streamlit with custom UI | Developer | Medium to high |
 | Deploy to institution servers | Sys admin | Medium — standard Python deployment |
 
-### 1. Map your SIS column names
-
-Waypoint's ingestion layer recognizes common column name variants automatically.
-Open `waypoint/ingest.py` and find the `FIELD_ALIASES` dictionary. Add your SIS
-export column names to the relevant alias lists if they are not already there:
-
-```python
-FIELD_ALIASES = {
-    "credits_completed": ["credits_completed", "credits_earned", "earned_credits", ...],
-    "next_term_registered": ["next_term_registered", "registered_next", ...],
-    ...
-}
-```
-
-### 2. Update the registration deadline
-
-In `config.py`:
-
-```python
-REGISTRATION_DEADLINE = "2025-08-01"  # Update to your actual deadline
-```
-
-### 3. Update credential thresholds
-
-In `config.py`:
-
-```python
-CREDENTIAL_THRESHOLDS = {
-    "certificate": 30,
-    "associates": 60,
-    "bachelors": 120,
-}
-```
-
-Adjust these to match your institution's program credit requirements.
-
-### 4. Ideally — export credits_remaining from your SIS
-
-The most important adaptation for real deployment: if your SIS can export a
-`credits_remaining` field from its degree audit module, add it to the CSV and
-update `waypoint/rules.py` to use it directly instead of calculating from
-thresholds. This eliminates the hardcoded threshold limitation entirely and
-gives you accurate, degree-audit-verified remaining credit counts.
-
 ---
 
 ## Design Assumptions
