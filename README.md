@@ -126,6 +126,94 @@ waypoint/
 
 ## Adapting Waypoint for Your Institution
 
+This section is intended for developers or technically sophisticated staff (system
+administrators, IT directors) who want to move beyond the demo and use Waypoint
+with real student data.
+
+### What works as-is (for demo purposes)
+
+The current version reads from a fixed synthetic CSV file included in the repository.
+This is intentional for demonstration — it means anyone can clone the repo and run
+the demo immediately without needing real student data.
+
+### What needs to change for real use
+
+**1. Add a file upload capability**
+
+The current app hardcodes the CSV file path in `config.py`. For real institutional
+use, an advisor or administrator needs to be able to upload their own CSV export
+from their SIS. This requires adding a file upload widget to `app.py` using
+Streamlit's `st.file_uploader()` component, and updating `config.py` to accept
+a dynamic file path instead of a hardcoded one.
+
+If you are using a different frontend framework or host, add a file upload component
+appropriate to that platform and pass the uploaded file path to `config.py` in the
+same way. The upload mechanism will vary by framework — consult your platform's
+documentation or a developer for implementation guidance.
+
+This is a straightforward development task but is intentionally out of scope for
+this POC. It is the most important next step for any institution wanting to move
+from demo to pilot.
+
+**2. Map your SIS column names**
+
+Your SIS export will almost certainly use different column names than Waypoint
+expects. You have two options:
+
+- **Modify your CSV export** — rename the columns in your SIS export to match
+  Waypoint's field names before uploading. This works but requires manual effort
+  every time you export.
+- **Modify `waypoint/ingest.py`** — add your SIS column names to the
+  `FIELD_ALIASES` dictionary. This is a one-time change and is the recommended
+  approach. After that, your exports work automatically with no manual column
+  renaming.
+
+The `FIELD_ALIASES` dictionary in `waypoint/ingest.py` already includes common
+variants for most field names. Check there first — your column names may already
+be recognized.
+
+**3. Update the registration deadline**
+
+In `config.py`:
+
+```python
+REGISTRATION_DEADLINE = "2025-08-01"  # Update to your actual deadline
+```
+
+**4. Update credential thresholds**
+
+In `config.py`:
+
+```python
+CREDENTIAL_THRESHOLDS = {
+    "certificate": 30,
+    "associates": 60,
+    "bachelors": 120,
+}
+```
+
+Adjust these to match your institution's program credit requirements.
+
+**5. Ideally — export credits_remaining from your SIS**
+
+The most important adaptation for real deployment: if your SIS can export a
+`credits_remaining` field from its degree audit module, add it to the CSV and
+update `waypoint/rules.py` to use it directly instead of calculating from
+thresholds. This eliminates the hardcoded threshold limitation entirely and
+gives you accurate, degree-audit-verified remaining credit counts.
+
+### Summary of changes by role
+
+| Task | Who does it | Effort |
+|---|---|---|
+| Add file upload widget | Developer | Low — one afternoon |
+| Map SIS column names | Developer or sys admin | Low — edit one dictionary |
+| Update registration deadline | Developer or sys admin | Trivial — change one line |
+| Update credential thresholds | Developer or sys admin | Trivial — change a few lines |
+| Connect SIS degree audit export | Developer + registrar | Medium — coordination required |
+| Replace Streamlit with custom UI | Developer | Medium to high |
+| Deploy to institution servers | Sys admin | Medium — standard Python deployment |
+
 ### 1. Map your SIS column names
 
 Waypoint's ingestion layer recognizes common column name variants automatically.
