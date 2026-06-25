@@ -1,0 +1,5 @@
+anthropic
+langgraph
+pandas
+streamlit
+python-dotenv
