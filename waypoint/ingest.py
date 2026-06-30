@@ -2,10 +2,11 @@
 # CSV ingestion and normalization layer
 # Handles messy real-world exports gracefully — bad data is flagged, not dropped
 
+import os
 import pandas as pd
 from datetime import datetime
 from waypoint.db import initialize_db, clear_tables, insert_student, insert_data_issue
-from config import CSV_PATH
+from config import CSV_PATH, MAX_CSV_FILE_SIZE_MB, MAX_CSV_ROWS
 
 # ── Field Name Aliases ────────────────────────────────────────────────────────
 # Maps common SIS export column name variants to Waypoint's internal field names
@@ -103,6 +104,22 @@ def ingest_csv(csv_path: str = CSV_PATH) -> dict:
     Main ingestion function. Reads CSV, normalizes fields, writes to SQLite.
     Returns a summary dict with counts for the Streamlit UI.
     """
+    # ── Validate file before touching the database ───────────────────────────
+    # Checked before initialize_db/clear_tables so a rejected file doesn't
+    # wipe out the previous successful run's data. Waypoint is sized for a
+    # single institution's student population, not arbitrarily large input.
+    try:
+        file_size_mb = os.path.getsize(csv_path) / (1024 * 1024)
+    except OSError:
+        raise FileNotFoundError(f"CSV not found at: {csv_path}")
+
+    if file_size_mb > MAX_CSV_FILE_SIZE_MB:
+        raise ValueError(
+            f"CSV file is {file_size_mb:.1f} MB, which exceeds the "
+            f"{MAX_CSV_FILE_SIZE_MB} MB limit (MAX_CSV_FILE_SIZE_MB in "
+            "config.py)."
+        )
+
     initialize_db()
     clear_tables()
 
@@ -120,10 +137,28 @@ def ingest_csv(csv_path: str = CSV_PATH) -> dict:
     except FileNotFoundError:
         raise FileNotFoundError(f"CSV not found at: {csv_path}")
 
+    if len(df) > MAX_CSV_ROWS:
+        raise ValueError(
+            f"CSV has {len(df)} rows, which exceeds the {MAX_CSV_ROWS}-row "
+            f"limit (MAX_CSV_ROWS in config.py). Increase the limit in "
+            "config.py if this is expected for your institution."
+        )
+
     summary["total_rows"] = len(df)
 
     # ── Normalize Column Names ────────────────────────────────────────────────
     df = normalize_columns(df)
+
+    # Fail loudly rather than silently loading zero students. Without a
+    # recognized student_id column, every row gets skipped further down with
+    # no obvious signal to the advisor that the CSV's columns don't match
+    # what Waypoint expects.
+    if "student_id" not in df.columns and len(df) > 0:
+        raise ValueError(
+            "No student ID column recognized in this CSV. Waypoint looked for "
+            "one of: " + ", ".join(FIELD_ALIASES["student_id"]) + ". Add your "
+            "SIS's column name to FIELD_ALIASES in waypoint/ingest.py."
+        )
 
     # ── Deduplicate on student_id ─────────────────────────────────────────────
     if "student_id" in df.columns:

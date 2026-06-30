@@ -110,18 +110,6 @@ def check_one_course_away(student: dict) -> str:
     if transfer > 0 and remaining <= transfer + ONE_COURSE_AWAY_CREDITS:
         return "ambiguous"
 
-    # Dual milestone — close to BOTH certificate AND associates thresholds
-    # Must check this BEFORE the clean flag check
-    if student["program_type"] == "associates" and 0 < remaining <= ONE_COURSE_AWAY_CREDITS:
-        cert_threshold = CREDENTIAL_THRESHOLDS["certificate"]
-        cert_remaining = (
-            cert_threshold
-            - student["credits_completed"]
-            - student["credits_in_progress"]
-        )
-        if 0 < cert_remaining <= ONE_COURSE_AWAY_CREDITS:
-            return "ambiguous"
-
     # Clean one course away flag
     if 0 < remaining <= ONE_COURSE_AWAY_CREDITS:
         return "flag"

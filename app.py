@@ -4,9 +4,9 @@
 
 import streamlit as st
 from waypoint.agent import run_waypoint
-from waypoint.db import get_all_flags, save_decision
+from waypoint.db import get_all_flags
 from waypoint.llm import generate_outreach_message
-from config import CSV_PATH
+from config import CSV_PATH, validate_config
 
 # ── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -14,6 +14,10 @@ st.set_page_config(
     page_icon="🧭",
     layout="wide",
 )
+
+# ── Config Sanity Check ───────────────────────────────────────────────────────
+for warning in validate_config():
+    st.warning(f"⚠️ Configuration: {warning}")
 
 # ── Styles ────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -28,6 +32,10 @@ st.markdown("""
     .flag-card-llm {
         border-left-color: #6B4E9B;
     }
+    .flag-card-error {
+        border-left-color: #B23A48;
+        background-color: #fdf2f2;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -38,6 +46,8 @@ if "decisions" not in st.session_state:
     st.session_state.decisions = {}
 if "outreach_messages" not in st.session_state:
     st.session_state.outreach_messages = {}
+if "confirm_rerun" not in st.session_state:
+    st.session_state.confirm_rerun = False
 
 
 def run_pipeline():
@@ -67,8 +77,32 @@ with col1:
 with col2:
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("▶ Run Demo", type="primary", use_container_width=True, key="run_top"):
-        run_pipeline()
+        if st.session_state.pipeline_run and st.session_state.decisions:
+            # Re-running wipes the database and resets all review state.
+            # Don't do that silently if the advisor has unreviewed work.
+            st.session_state.confirm_rerun = True
+        else:
+            run_pipeline()
         st.rerun()
+
+if st.session_state.confirm_rerun:
+    confirmed_count = sum(1 for d in st.session_state.decisions.values() if d == "confirmed")
+    dismissed_count = sum(1 for d in st.session_state.decisions.values() if d == "dismissed")
+    st.warning(
+        f"You've reviewed {confirmed_count + dismissed_count} flag(s) this run "
+        f"({confirmed_count} confirmed, {dismissed_count} dismissed). Running again "
+        f"will reload from the CSV and **discard this review** — it cannot be undone."
+    )
+    cc1, cc2, _ = st.columns([2, 1, 4])
+    with cc1:
+        if st.button("Yes, run again and discard my review", type="primary", key="confirm_rerun_yes"):
+            st.session_state.confirm_rerun = False
+            run_pipeline()
+            st.rerun()
+    with cc2:
+        if st.button("Cancel", key="confirm_rerun_cancel"):
+            st.session_state.confirm_rerun = False
+            st.rerun()
 
 st.markdown("---")
 
@@ -203,6 +237,15 @@ if not st.session_state.pipeline_run:
 
 # ── Pipeline Summary ──────────────────────────────────────────────────────────
 state = st.session_state.pipeline_state
+
+if state.get("status") == "error":
+    st.error(
+        "The pipeline could not complete. Nothing was loaded or flagged.\n\n"
+        + "\n\n".join(f"- {e}" for e in state.get("errors", []))
+    )
+    render_footer()
+    st.stop()
+
 summary = state.get("ingest_summary", {})
 
 st.markdown("---")
@@ -212,6 +255,16 @@ col2.metric("Duplicates Removed", summary.get("duplicates_removed", 0))
 col3.metric("Data Issues", summary.get("data_issues", 0))
 col4.metric("Deterministic Flags", len(state.get("clear_flags", [])))
 col5.metric("LLM Flags", len(state.get("llm_flags", [])))
+
+llm_skipped = state.get("llm_skipped", 0)
+if llm_skipped:
+    st.warning(
+        f"⚠️ {llm_skipped} ambiguous case(s) were not evaluated by Claude because "
+        f"this run hit its token budget (MAX_TOKENS_PER_RUN in config.py). These "
+        f"students were flagged by the rule engine as needing judgment, but did "
+        f"not receive one — they will not appear below. Increase the budget or "
+        f"re-run to review them."
+    )
 
 st.markdown("---")
 
@@ -238,11 +291,12 @@ with col1:
 with col2:
     filter_source = st.selectbox(
         "Source",
-        ["All", "deterministic", "llm"],
+        ["All", "deterministic", "llm", "llm_error"],
         format_func=lambda x: {
             "All": "All sources",
             "deterministic": "Deterministic rule",
-            "llm": "Claude reasoning"
+            "llm": "Claude reasoning",
+            "llm_error": "⚠️ Needs manual review"
         }.get(x, x)
     )
 with col3:
@@ -292,7 +346,12 @@ data and Claude's certainty about its own recommendation.
 for flag in filtered_flags:
     flag_id = flag["id"]
     decision = st.session_state.decisions.get(flag_id)
-    card_class = "flag-card-llm" if flag["flag_source"] == "llm" else "flag-card"
+    if flag["flag_source"] == "llm_error":
+        card_class = "flag-card-error"
+    elif flag["flag_source"] == "llm":
+        card_class = "flag-card-llm"
+    else:
+        card_class = "flag-card"
 
     with st.container():
         st.markdown(f'<div class="{card_class} flag-card">', unsafe_allow_html=True)
@@ -302,7 +361,12 @@ for flag in filtered_flags:
             flag_emoji = "🟢" if flag["flag_type"] == "one_course_away" else "🟠"
             flag_label = "One Course Away" if flag["flag_type"] == "one_course_away" \
                 else "Credit Momentum"
-            source_label = "Claude" if flag["flag_source"] == "llm" else "Rule"
+            if flag["flag_source"] == "llm_error":
+                source_label = "⚠️ Needs Manual Review (Claude unavailable)"
+            elif flag["flag_source"] == "llm":
+                source_label = "Claude"
+            else:
+                source_label = "Rule"
             confidence = flag.get("confidence", "")
             confidence_emoji = {"high": "🟢", "medium": "🟡", "low": "🔴"}.get(confidence, "")
             confidence_str = f" · {confidence_emoji} {confidence} confidence" \
@@ -339,12 +403,10 @@ for flag in filtered_flags:
             with col1:
                 if st.button("✓ Confirm", key=f"confirm_{flag_id}", type="primary"):
                     st.session_state.decisions[flag_id] = "confirmed"
-                    save_decision(flag_id, flag["student_id"], "confirmed", "")
                     st.rerun()
             with col2:
                 if st.button("✗ Dismiss", key=f"dismiss_{flag_id}"):
                     st.session_state.decisions[flag_id] = "dismissed"
-                    save_decision(flag_id, flag["student_id"], "dismissed", "")
                     st.rerun()
 
         if decision == "confirmed":

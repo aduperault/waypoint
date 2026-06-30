@@ -53,17 +53,6 @@ def initialize_db():
         )
     """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS confirmed_flags (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            flag_id INTEGER,
-            student_id TEXT,
-            decision TEXT,
-            outreach_message TEXT,
-            decided_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
     conn.commit()
     conn.close()
     print("Database initialized.")
@@ -144,14 +133,3 @@ def get_all_flags():
     rows = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return rows
-
-
-def save_decision(flag_id: int, student_id: str, decision: str, outreach_message: str):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO confirmed_flags (flag_id, student_id, decision, outreach_message) VALUES (?, ?, ?, ?)",
-        (flag_id, student_id, decision, outreach_message)
-    )
-    conn.commit()
-    conn.close()

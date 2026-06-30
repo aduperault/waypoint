@@ -6,6 +6,29 @@ Waypoint demonstrates how a small institution can begin leveraging AI at the "cr
 
 ---
 
+## Who Waypoint Is For
+
+Waypoint is built for **small, under-resourced education institutions** with small student
+populations where:
+
+- The student population is small enough that a single local CSV export and a lightweight
+  local app are a realistic fit, not a constraint.
+- IT infrastructure is limited — no dedicated CRM, no cloud platform integration, and often no
+  dedicated developer on staff to maintain a complex system.
+- Internet connectivity can be slow or unreliable, which shaped real design decisions here:
+  the batch-and-review architecture, the token budget cap, and the API timeout/retry tuning all
+  exist because of this constraint, not despite it.
+
+Waypoint is **free and open source**, intended to be forked, adapted, and run locally by
+institutions or developers in this situation. It is **a proof of concept, not a production
+product** — see [What Waypoint Does NOT Do](#what-waypoint-does-not-do) and the closing note at
+the bottom of this README for what that means in practice. If your institution has the
+resources for a full CRM integration, dedicated infrastructure, and ongoing engineering
+support, Waypoint's "crawl stage" approach is likely a starting point to learn from, not the
+end destination.
+
+---
+
 ## What Waypoint Does
 
 Waypoint ingests a single CSV export from any Student Information System (SIS) and surfaces two types of advisor nudges:
@@ -33,6 +56,17 @@ The batch architecture is intentional: it minimizes token usage, processing over
 - **Does not track outreach outcomes.** No visibility into whether messages were sent or received.
 - **Does not perform a degree audit.** Credit completion is used as a proxy. See Design Assumptions below.
 - **Does not store data between sessions.** The SQLite database resets each pipeline run.
+- **Is not built for concurrent advisors.** Waypoint uses a single local SQLite file. If two
+  people run the pipeline against the same instance at the same time, the second run overwrites
+  the first. The app will ask for confirmation before discarding an in-progress review on the
+  same machine, but it cannot detect or protect against a second person running it elsewhere.
+  This is a single-operator, local proof of concept by design.
+- **Has no built-in authentication.** Anyone who can reach the running Streamlit instance can
+  run the pipeline and view every student's data — there is no login, password, or access
+  control of any kind in the app itself. This is fine on `localhost` or a trusted internal
+  network. If you deploy Waypoint anywhere reachable beyond that, put it behind your own
+  authentication layer (e.g. a reverse proxy with login, VPN-only access, or your institution's
+  SSO) — do not expose it directly to the open internet.
 - **Requires an Anthropic API key.** You will need your own key to run a local instance.
 
 ---
@@ -66,7 +100,7 @@ source .venv/bin/activate
 # On Windows: .venv\Scripts\activate
 
 # 3. Install dependencies
-pip install anthropic langgraph pandas streamlit python-dotenv
+pip install -r requirements.txt
 
 # 4. Add your Anthropic API key
 cp .env.example .env
@@ -84,44 +118,49 @@ The app will open automatically in your browser at `http://localhost:8501`.
 
 Click **▶ Run Demo** to ingest the student CSV and generate flags. The pipeline takes approximately 30 to 60 seconds — Claude evaluates each ambiguous case individually, which accounts for most of the processing time.
 
+### Running Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest tests/ -v
+```
+
+No Anthropic API key is required to run the test suite — all LLM calls are mocked. Tests run
+automatically on every push and pull request via GitHub Actions
+(`.github/workflows/tests.yml`).
+
 ---
 
 ## Project Structure
+
 waypoint/
-
 ├── app.py                          # Streamlit advisor UI
-
 ├── config.py                       # Central configuration and thresholds
-
 ├── .env                            # Your Anthropic API key (never committed)
-
 ├── .env.example                    # API key template
-
+├── .python-version                 # Pinned Python version (3.11)
+├── requirements.txt                # Runtime dependencies
+├── requirements-dev.txt            # Runtime + test dependencies (pytest)
+├── LICENSE                         # MIT license
+├── .github/
+│   └── workflows/
+│       └── tests.yml               # CI: runs the test suite on push/PR
 ├── waypoint/
-
 │   ├── agent.py                    # LangGraph orchestration
-
 │   ├── ingest.py                   # CSV normalization and ingestion
-
 │   ├── rules.py                    # Deterministic flag engine
-
 │   ├── llm.py                      # Claude reasoning and outreach drafting
-
 │   └── db.py                       # SQLite schema and operations
-
 ├── data/
-
 │   ├── generate_synthetic.py       # Reproducible synthetic dataset generator
-
 │   └── synthetic/
-
 │       └── redrock_students.csv    # Generated demo dataset
-
 └── tests/
-
-├── test_ingest.py
-
-└── test_rules.py
+    ├── test_agent.py
+    ├── test_config.py
+    ├── test_ingest.py
+    ├── test_llm.py
+    └── test_rules.py
 ---
 
 ## Adapting Waypoint for Your Institution
@@ -177,7 +216,7 @@ be recognized.
 In `config.py`:
 
 ```python
-REGISTRATION_DEADLINE = "2025-08-01"  # Update to your actual deadline
+REGISTRATION_DEADLINE = "2026-08-01"  # Update to your actual deadline
 ```
 
 **4. Update credential thresholds**
@@ -348,7 +387,7 @@ Waypoint is open-source and intended as a starting point. Contributions welcome:
 - Additional SIS column name aliases
 - Support for additional credential types
 - Improved ambiguity detection rules
-- Test coverage for `test_ingest.py` and `test_rules.py`
+- Additional test coverage as new functionality is added
 - Deployment guides for specific SIS platforms
 
 Fork the repo, make your changes, and open a pull request.

@@ -1,5 +1,5 @@
-anthropic
-langgraph
-pandas
-streamlit
-python-dotenv
+anthropic>=0.86,<1.0
+langgraph>=1.2,<2.0
+pandas>=2.3,<3.0
+streamlit>=1.55,<2.0
+python-dotenv>=1.2,<2.0

@@ -183,10 +183,9 @@ for credits,transfer in [(54,9),(56,6)]:
     ))
 
 # ── PROFILE J: Dual milestone (1 record) ─────────────────────────────────────
-# associates remaining = 60 - 57 - 0 = 3
-# cert remaining = 30 - 27 - 0 = 3 (27 of 57 credits count toward cert)
-# Both fire simultaneously -> ambiguous
-# We encode cert_credits as transfer_credits=27 to signal dual enrollment
+# associates remaining = 60 - 57 - 0 = 3, transfer_credits = 27
+# Routes to ambiguous via the transfer-pending check (remaining <= transfer + 3),
+# not a dedicated dual-milestone rule — see rules.py / check_one_course_away.
 f,l = new_name()
 rows.append(make_row(
     new_id(),f,l,"associates","Science",

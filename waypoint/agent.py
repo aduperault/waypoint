@@ -23,6 +23,7 @@ class WaypointState(TypedDict):
     ambiguous: list
     no_flag: list
     llm_flags: list
+    llm_skipped: int
     all_flags: list
     errors: list
     status: str
@@ -75,10 +76,11 @@ def node_llm_evaluation(state: WaypointState) -> WaypointState:
     """Send ambiguous cases to Claude for reasoning."""
     print(f"[3/4] Sending {len(state['ambiguous'])} ambiguous cases to Claude...")
     try:
-        llm_flags = evaluate_batch(state["ambiguous"])
+        result = evaluate_batch(state["ambiguous"])
         return {
             **state,
-            "llm_flags": llm_flags,
+            "llm_flags": result["flags"],
+            "llm_skipped": result["skipped"],
             "status": "llm_complete",
         }
     except Exception as e:
@@ -86,6 +88,7 @@ def node_llm_evaluation(state: WaypointState) -> WaypointState:
             **state,
             "errors": state["errors"] + [f"LLM evaluation failed: {str(e)}"],
             "llm_flags": [],
+            "llm_skipped": 0,
             "status": "llm_error",  # Non-fatal — deterministic flags still save
         }
 
@@ -176,6 +179,7 @@ def run_waypoint(csv_path: str = CSV_PATH) -> dict:
         ambiguous=[],
         no_flag=[],
         llm_flags=[],
+        llm_skipped=0,
         all_flags=[],
         errors=[],
         status="starting",
